@@ -62,7 +62,7 @@ RUN wget https://bootstrap.pypa.io/get-pip.py && \
 # Clone TensoFlow from Mozilla repo
 RUN git clone https://github.com/mozilla/tensorflow/
 WORKDIR /tensorflow
-RUN git checkout r1.11
+RUN git checkout r1.12
 
 
 # GPU Environment Setup
@@ -165,9 +165,6 @@ RUN ./configure
 # passing LD_LIBRARY_PATH is required cause Bazel doesn't pickup it from environment
 
 
-# Build LM Prefix Decoder, CPU only - no need for CUDA flag
-RUN bazel build -c opt --copt=-O3 --copt="-D_GLIBCXX_USE_CXX11_ABI=0" --copt=-mtune=generic --copt=-march=x86-64 --copt=-msse --copt=-msse2 --copt=-msse3 --copt=-msse4.1 --copt=-msse4.2 --copt=-mavx //native_client:libctc_decoder_with_kenlm.so  --verbose_failures --action_env=LD_LIBRARY_PATH=${LD_LIBRARY_PATH}
-
 # Build DeepSpeech
 RUN bazel build --config=monolithic --config=cuda -c opt --copt=-O3 --copt="-D_GLIBCXX_USE_CXX11_ABI=0" --copt=-mtune=generic --copt=-march=x86-64 --copt=-msse --copt=-msse2 --copt=-msse3 --copt=-msse4.1 --copt=-msse4.2 --copt=-mavx --copt=-fvisibility=hidden //native_client:libdeepspeech.so //native_client:generate_trie --verbose_failures --action_env=LD_LIBRARY_PATH=${LD_LIBRARY_PATH}
 
@@ -184,13 +181,12 @@ RUN bazel build --config=monolithic --config=cuda -c opt --copt=-O3 --copt="-D_G
 # RUN pip install /tmp/tensorflow_pkg/*.whl
 
 # Copy built libs to /DeepSpeech/native_client
-RUN cp /tensorflow/bazel-bin/native_client/libctc_decoder_with_kenlm.so /DeepSpeech/native_client/ \
-    && cp /tensorflow/bazel-bin/native_client/generate_trie /DeepSpeech/native_client/ \
+RUN cp /tensorflow/bazel-bin/native_client/generate_trie /DeepSpeech/native_client/ \
     && cp /tensorflow/bazel-bin/native_client/libdeepspeech.so /DeepSpeech/native_client/
 
 # Install TensorFlow
 WORKDIR /DeepSpeech/
-RUN pip install tensorflow-gpu==1.11.0
+RUN pip install tensorflow-gpu==1.12.0rc2
 
 
 # Make DeepSpeech and install Python bindings
@@ -200,6 +196,9 @@ RUN make deepspeech
 WORKDIR /DeepSpeech/native_client/python
 RUN make bindings
 RUN pip install dist/deepspeech*
+WORKDIR /DeepSpeech/native_client/ctcdecode
+RUN make
+RUN pip install dist/*.whl
 
 
 # << END Build and bind
